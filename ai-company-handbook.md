@@ -913,6 +913,8 @@ This document is the company constitution. Every structural or constitutional ch
 
 | Date | Change | Type |
 |---|---|---|
+| 2026-05-24 | GitHub repos created on `ashr-aicom` org: handbook (public), knowledge (public), operations (private). Bootstrapped from handbook template. Verified: git init, initial commit, push successful. | Infrastructure |
+| 2026-05-24 | Added `docs/testing.md` — test catalog (31 tests), regression map, run history, TL;DR verification. Linked from handbook appendix. | Operational |
 | 2026-05-24 | Added Company Infrastructure section: GitHub org structure, local directory layout, knowledge as Git submodule, GitHub setup meta-task, handbook sync. Updated Architecture and Distribution sections. | Constitutional |
 | 2026-05-24 | Lead rearchitected as subagent (mode: subagent). Build remains primary. Lead provides analysis and routing recommendations; build delegates via Task tool. Knowledge agent: edit allow for skill creation. Architecture diagram simplified. | Architectural |
 | 2026-05-23 | Added Company Evolution & Retrospectives section. `@reviewer` as retro facilitator. Graduated approval model (minor/process/structural/constitutional). Trust evolution over time. | Constitutional |

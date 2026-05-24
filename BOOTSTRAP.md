@@ -1,121 +1,91 @@
-# Bootstrap Your AI Company
+# Bootstrap the AI Company
 
-This handbook lets you set up your own AI software company powered by OpenCode agents. Every team member is an AI agent with a defined role, model assignment, and trigger phrases.
+Use these instructions ONLY when initializing the AI company in a new directory. Do not apply during normal operation.
 
-## Prerequisites
+## How to detect initialization
 
-- [OpenCode](https://opencode.ai) installed
-- A GitHub account (for company infrastructure)
-- Git installed
+The user will say something like:
+- "Initialize company from <url-or-path>"
+- "Setup the AI company"
+- "Bootstrap the company"
 
-## Quick Start
+If `.opencode/agents/` already exists with more than 2 agent files, the company is already initialized. Report status. Do not overwrite unless the user explicitly asks.
 
-### 1. Clone the handbook
+## Step 1: Fetch the handbook
 
-```bash
-git clone https://github.com/ashr-aicom/handbook.git ai-company/handbook
-```
+The user provides a source — GitHub URL, local directory path, or nothing.
 
-### 2. Clone the knowledge repo
+| Source | Action |
+|---|---|
+| `https://github.com/...` | Clone the repo into a temp location. Read files from there. |
+| `/absolute/path` or `~/path` | Read directly from that directory. |
+| Not provided | Ask the user for the source URL or path. |
 
-```bash
-git clone https://github.com/ashr-aicom/knowledge.git ai-company/knowledge
-```
+## Step 2: Read the constitution
 
-Or create your own:
+Read `ai-company-handbook.md`. This contains:
+- **Architecture** (§): company structure, task-scale gating
+- **Design Principles** (§): 10 principles to embed in every agent
+- **Team Roster** (§): every agent's role, model, tools, and trigger phrases
+- **Model Assignment Rationale** (§): which model goes to which agent
 
-```bash
-mkdir -p ai-company/knowledge/.opencode/skills
-```
+## Step 3: Create opencode.json
 
-### 3. Set up operations
+Generate a minimal `opencode.json`. The build agent remains the primary agent — no default_agent override needed. The handbook is loaded as an instruction file:
 
-```bash
-mkdir -p ai-company/operations/docs/hiring ai-company/operations/docs/retrospectives
-```
-
-### 4. Create your project
-
-```bash
-mkdir -p ai-company/projects/my-project
-cd ai-company/projects/my-project
-
-# Add knowledge as a submodule
-git submodule add https://github.com/ashr-aicom/knowledge.git knowledge
-
-# Create opencode.json
-cat > opencode.json << 'EOF'
+```json
 {
   "$schema": "https://opencode.ai/config.json",
-  "instructions": ["../handbook/ai-company-handbook.md"]
+  "instructions": ["ai-company-handbook.md"]
 }
-EOF
 ```
 
-### 5. Configure agents
+## Step 4: Create subagent files
 
-Copy agent templates into your project:
+For each subagent in the Team Roster (§), create `.opencode/agents/<name>.md`.
 
-```bash
-mkdir -p .opencode/agents
-cp ../handbook/agent-templates/*.md .opencode/agents/
-```
+See the Appendix (§) in the handbook for the file format.
 
-Customize model assignments and prompts as needed.
+If the handbook repo contains `agent-templates/<name>.md`, copy those files directly (they have full system prompts).
 
-### 6. Start building
+If no templates exist, generate the prompt from the role description, strength, and trigger phrases in the roster table. The prompt must include:
+1. Role name and purpose
+2. Strengths (from roster)
+3. When to accept tasks (trigger phrases)
+4. The design principles from the handbook (§ Design Principles)
+5. Relevant conventions: "Never add comments unless asked. Follow the existing codebase conventions."
 
-Launch OpenCode from your project directory and delegate work to agents:
+## Step 5: Create skills directory
 
-```
-@lead build a login page with email/password form
-```
-
-## Customization
-
-### Replace model assignments
-
-Edit each agent file in `.opencode/agents/` to use models available in [your OpenCode model catalog](https://opencode.ai/zen/go/v1/models).
-
-### Create your own skills
-
-Skills live in `knowledge/.opencode/skills/`. Each skill is a directory with a `SKILL.md` file:
-
-```markdown
----
-name: my-domain
-description: Description of the domain. Use when working with X, Y, or Z in any project.
----
-
-# My Domain Skill
-
-## Patterns
-...
-
-## Gotchas
-...
-```
-
-### Add new roles
-
-Follow the hiring process in the handbook's Agent Hiring & Evaluation section.
-
-## Directory Structure
+Create `.opencode/skills/` directory with a single `README.md`:
 
 ```
-ai-company/
-├── handbook/          # This repo — company constitution
-├── knowledge/         # Shared skills (Git submodule in each project)
-├── operations/        # Internal records (private)
-└── projects/
-    └── my-project/
-        ├── handbook/   # Git submodule → handbook repo
-        ├── knowledge/  # Git submodule → knowledge repo
-        └── .opencode/
-            └── agents/
+# Skills
+
+Skills are created by @knowledge on first research request.
+See @knowledge's role for details.
+
+Empty directory is intentional — no research has been done yet.
 ```
 
-## References
+## Step 6: Copy handbook and report completion
 
-- [AI Company Handbook](./ai-company-handbook.md) — full constitution
-- [OpenCode Documentation](https://opencode.ai)
+Copy `ai-company-handbook.md` into the project root (needed for the `instructions` field in opencode.json). Then report:
+
+```
+Company initialized.
+
+11 agents ready:
+  Planning: @lead, @po, @architect, @architect-context, @knowledge
+  Specialists: @frontend, @frontend-pro, @backend, @backend-ops, @reviewer, @devops
+
+Next steps:
+  1. Quit opencode and restart (config is loaded at startup)
+  2. Ask @lead for routing guidance: "Use @lead to analyze: <task>"
+  3. Set up GitHub: "@lead setup github" (separate meta-task — creates repos,
+     sets up knowledge submodule, pushes handbook)
+```
+
+## Note on Git and GitHub
+
+Git setup is a **separate meta-task**, not part of initialization. The company is fully operational locally without Git. When the user is ready, they run `@lead setup github` which creates the GitHub org, repos, and submodule links as described in the handbook's Company Infrastructure section.
