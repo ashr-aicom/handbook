@@ -23,20 +23,18 @@ The user provides a source — GitHub URL, local directory path, or nothing.
 
 ## Step 2: Read the constitution
 
-Read `ai-company-handbook.md`. This contains:
-- **Architecture** (§): company structure, task-scale gating
-- **Design Principles** (§): 10 principles to embed in every agent
-- **Team Roster** (§): every agent's role, model, tools, and trigger phrases
-- **Model Assignment Rationale** (§): which model goes to which agent
+Read `agent-instructions.md` and `ai-company-handbook.md`. These contain:
+- **agent-instructions.md**: Concise agent rules — available agents, routing, meta-tasks, critical rules (for context-efficient loading)
+- **ai-company-handbook.md**: Full company constitution — architecture, design principles, team roster, hiring pipeline, evaluations, retrospectives, infrastructure
 
 ## Step 3: Create opencode.json
 
-Generate a minimal `opencode.json`. The build agent remains the primary agent — no default_agent override needed. The handbook is loaded as an instruction file:
+Generate a minimal `opencode.json`. The instructions load the lean agent file and the full handbook as reference:
 
 ```json
 {
   "$schema": "https://opencode.ai/config.json",
-  "instructions": ["ai-company-handbook.md"]
+  "instructions": ["agent-instructions.md", "ai-company-handbook.md"]
 }
 ```
 
@@ -70,13 +68,13 @@ Empty directory is intentional — no research has been done yet.
 
 ## Step 6: Copy handbook and report completion
 
-Copy `ai-company-handbook.md` into the project root (needed for the `instructions` field in opencode.json). Then report:
+Copy `agent-instructions.md` and `ai-company-handbook.md` into the project root (needed for the `instructions` field in opencode.json). Then report:
 
 ```
 Company initialized.
 
-11 agents ready:
-  Planning: @lead, @po, @architect, @architect-context, @knowledge
+12 agents ready:
+  Planning: @lead, @pm, @po, @architect, @architect-context, @knowledge
   Specialists: @frontend, @frontend-pro, @backend, @backend-ops, @reviewer, @devops
 
 Next steps:

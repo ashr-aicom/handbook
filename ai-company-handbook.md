@@ -12,7 +12,7 @@
 |---|---|---|
 | **You** | — | The CEO. All work flows through the build agent. |
 | **Build** (primary) | `build` | Default OpenCode agent. Handles all tool access. Invokes planning agents and specialists via Task tool. You can also @mention any agent directly. |
-| **Planning** (gated) | `@lead`, `@po`, `@architect`, `@architect-context`, `@knowledge` | Lead analyzes tasks and recommends routing. Product Owner breaks large requests into epics/stories. Architect creates technical plans. Knowledge Manager researches, maintains skills, verifies plans. Invoked based on task scale. |
+| **Planning** (gated) | `@lead`, `@pm`, `@po`, `@architect`, `@architect-context`, `@knowledge` | Lead analyzes tasks and recommends routing. PM owns project delivery and enforces DoD. Product Owner breaks large requests into epics/stories. Architect creates technical plans. Knowledge Manager researches, maintains skills, verifies plans. Invoked based on task scale. |
 | **Specialists** | `@frontend`, `@frontend-pro`, `@backend`, `@backend-ops`, `@reviewer`, `@devops` | Execute work. Frontend and backend each have standard and pro variants. Reviewer is read-only. DevOps handles config/deploy. |
 | **Knowledge** | `.opencode/skills/` | Living documents — company brain. Skills start as research, evolve through experience. Auto-loaded when specialists encounter matching keywords. Shared across projects via Git submodule. |
 | **GitHub** | `handbook`, `knowledge`, `operations`, `project-*` repos | Company infrastructure on GitHub. Handbook is public for others to bootstrap. Knowledge is shared via submodule. Operations is private for internal records. Projects have dedicated repos. |
@@ -21,11 +21,19 @@
 
 | Request scale | Example | Agents invoked |
 |---|---|---|
-| **Small** | "Fix this button color" | Lead → Specialist directly |
-| **Medium** | "Build MapContainer from plan" | Lead → Architect → Specialist |
+| **Compact** | "Build a dark-mode toggle", "Add a login form" | @lead analyze → Specialist → verify tsc |
+| **Medium** | "Build MapContainer from plan", "Add search with debounce" | Lead → Architect → Specialist |
 | **Large** | "Build a ride hailing system" | Lead → PO → Architect → Specialists |
 
-PO and Architect are **optional layers** — the Lead decides whether to engage them based on request complexity. For small tasks, the Lead routes directly to a specialist. No agent is invoked unnecessarily.
+### Scale criteria
+
+| Scale | Criteria | Pipeline cost |
+|---|---|---|
+| **Compact** | 1-5 files, clear requirements, standard patterns, single domain | 2-3 agent invocations |
+| **Medium** | Multi-file (5+), architectural decisions needed, new patterns or integrations | 3-5 agent invocations |
+| **Large** | New system/module, multi-feature, spans frontend+backend, "build a ... system/app" | 5-7 agent invocations |
+
+Compact is the new default for most work. Medium+ is reserved for tasks that genuinely need architectural planning. The build agent errs toward Compact — upgrade to Medium only if there's real uncertainty.
 
 ---
 
@@ -111,6 +119,12 @@ Skills are **not project-specific** — they are company-wide knowledge that app
 |---|---|---|---|
 | `@lead` | `opencode-go/deepseek-v4-flash` | read, glob, grep, webfetch (no edit/write/bash) | Analyzes tasks, determines scale, and recommends which specialist to route to. Called by build agent via Task tool when routing guidance is needed. Does not execute work directly. |
 
+### Project Manager
+
+| Agent | Model | Tools | Role | Trigger |
+|---|---|---|---|---|
+| `@pm` | `opencode-go/qwen3.6-plus` | read, write, glob, grep (no bash — tracking only) | Owns project delivery. Initializes TRACKING.md, enforces DoD tier per task scale, verifies task completion, reports project status. Single point of accountability for project outcomes. | `@pm init project <name>`, `@pm status`, `@pm verify <task-id>`, `@pm close project` |
+
 ### Product Owner
 
 | Agent | Model | Tools | Role | Trigger |
@@ -166,7 +180,7 @@ Skills are **not project-specific** — they are company-wide knowledge that app
 | DeepSeek V4 Flash | `@frontend`, `@backend`, `@architect-context`, `@reviewer` | Near-Pro quality at 5.7x volume. The team's workhorse. 1M context is critical for full-codebase agents. |
 | MiniMax M2.5 | `@architect` | Uniquely designed for "architect-level planning, decomposing tasks before coding." |
 | MiniMax M2.7 | `@backend-ops` | Built for SRE, log analysis, real-world engineering. When "it works on my machine" isn't enough. |
-| Qwen3.6 Plus | `@devops`, `@knowledge` | Config files and documentation don't need a premium model. Good enough, preserves budget. |
+| Qwen3.6 Plus | `@devops`, `@knowledge`, `@pm` | Config files, documentation, and project tracking don't need a premium model. Good enough, preserves budget. |
 | Inherited | `@lead`, `@po` | Lead and PO inherit the primary session model. You control the routing intelligence quality. PO's model quality determines how well it breaks down large systems. |
 
 ---
@@ -439,23 +453,23 @@ On every request, the Lead first determines the scale:
 
 | Scale | Indicators |
 |---|---|
-| **Small** | Single component, one-file change, bug fix with clear location, simple question |
-| **Medium** | New feature spanning multiple files, architectural decision needed, new component from a spec |
-| **Large** | New system/module, multiple features, "build a ... system/app/platform", spans frontend + backend |
+| **Compact** | 1-5 files, one domain, standard patterns, no architectural uncertainty |
+| **Medium** | Multi-file (5+), new patterns, integrations, cross-domain |
+| **Large** | New system/module, multiple features, "build a ... system", spans frontend + backend |
 
 ### Step 2: Route by scale
 
-#### Small request — direct delegation
+#### Compact request — lean pipeline
 
 ```
-You → build → Task(@lead) → Lead: "SMALL, @frontend"
-              → build → Task(@frontend)
+You → build → Task(@lead) → Lead: "COMPACT, @frontend"
+              → build → Task(@frontend) → tsc check → Done
 ```
 
 ```
-You: "@lead fix the reset button color"
-Lead: "Scale: SMALL. Single component change. Route: @frontend."
-Build: delegates to @frontend via Task tool
+You: "build a dark-mode toggle for the app"
+Lead: "Scale: COMPACT. Standard pattern, single domain. Route: @frontend."
+Build: delegates to @frontend, verifies tsc, done.
 ```
 
 #### Medium request — architect first
@@ -496,26 +510,21 @@ Build: @po breaks into 3 epics → @architect plans Rider epic →
 ```
 Scale assessment (by @lead)
 │
-├─ SMALL → Which domain?
-│   ├─ Frontend → Standard?
-│   │   ├─ Yes → @frontend
-│   │   └─ No (complex/perf/bug) → @frontend-pro
-│   ├─ Backend → Ops/debugging?
-│   │   ├─ Yes → @backend-ops
-│   │   └─ No → @backend
+├─ COMPACT → Which domain?
+│   ├─ Frontend → @frontend (or @frontend-pro if complex)
+│   ├─ Backend → @backend (or @backend-ops)
 │   ├─ Review → @reviewer
-│   ├─ Knowledge → @knowledge (research, update skill, verify plan)
+│   ├─ Knowledge → @knowledge
 │   └─ Config/deploy → @devops
 │
 ├─ MEDIUM → @po needed? (no)
-│   ├─ @knowledge: "check for relevant skills, document learnings after"
 │   ├─ @architect-context (if full-codebase scope)
 │   └─ @architect (standard planning)
-│       └─ Then route to specialists (as in SMALL)
+│       └─ Then route to specialists (as in COMPACT)
 │
 └─ LARGE → @po needed? (yes)
     ├─ @knowledge: "research domain, check existing skills"
-    ├─ @po → breaks into epics/stories (incorporating knowledge)
+    ├─ @po → breaks into epics/stories
     ├─ @architect → technical plan per epic
     ├─ Specialists → parallel execution per epic
     └─ @knowledge: "document all new learnings surfaced"
@@ -543,11 +552,114 @@ Not all company work fits the Small/Medium/Large routing model. Meta-tasks are o
 | **Hire/replace agent** | User: `@lead hire frontend` | Lead → Knowledge → Reviewer → Candidate agents | Agent Hiring & Evaluation (§ above) |
 | **Run model audit** | User: `@lead audit models` (or Lead detects it's due) | Lead → Knowledge | Model Lifecycle Management (§ above) |
 | **Run retrospective** | User: `@lead run retro` (or project close / month-end) | Lead → Knowledge → Reviewer | Company Evolution & Retrospectives (§ below) |
-| **Onboard new project** | User: `@lead onboard project X` | Lead → Knowledge → PO → Architect | Lead delegates PO/Architect per scale gating |
-| **Add new role** | User: `@lead create @mobile role` | Lead → Knowledge (designs agent, runs hiring) | Company Evolution (§ below) |
-| **Disable/archive role** | User: `@lead disable @backend-ops` | Lead → Knowledge (marks agent `disable: true`) | Company Evolution (§ below) |
+| **Onboard new project** | User: `@lead onboard project X` | Lead → @pm → Knowledge → PO → Architect | @pm initializes TRACKING.md and task breakdown |
+| **Add new role** | User: `@lead create @mobile role` | Lead → @pm → Knowledge (designs agent, runs hiring) | @pm owns the new role's integration |
+| **Disable/archive role** | User: `@lead disable @backend-ops` | Lead → @pm → Knowledge (marks agent `disable: true`) | @pm verifies no active tasks assigned |
 
 Meta-tasks bypass the normal routing tree. The Lead recognizes them by their explicit trigger keywords and routes directly to the documented flow.
+
+---
+
+## Definition of Done
+
+"Done" is not an opinion. It is a measurable state that agents must verify before reporting completion. The human must be able to trust that "done" means done.
+
+### Human limitation awareness
+
+Humans (clients) often provide vague or incomplete requirements. Before executing any task, the build agent and @lead must:
+
+1. Ask clarifying questions if requirements are ambiguous ("what auth provider?", "mobile responsive?")
+2. Propose scope if the human seems uncertain ("I'll build the basic version with email/password. Add SSO later?")
+3. Never guess — if the human says "build a login page", do not assume signup, password reset, or OAuth. Ask.
+
+This is the AI company's job, not the human's burden. The company fills gaps, asks questions, and does not execute blindly.
+
+### Tiered verification
+
+| Scale | Required | Verifier |
+|---|---|---|
+| **Compact** | `tsc --noEmit` (or compile check). If UI component: `npm run dev` starts without errors. Log completed task to TRACKING.md if project has one. | Build agent |
+| **Medium** | Compact + `build` + `@reviewer` approved | Build agent + @reviewer |
+| **Large** | Medium + `@pm` signoff + Playwright screenshot (if UI project) | Build agent + @reviewer + @pm |
+
+The build agent enforces this. "Done" is never reported until the tier's requirements are met.
+
+### Playwright MCP (optional)
+
+For UI projects, enable Playwright for browser verification:
+
+```json
+// in opencode.json
+{
+  "mcp": {
+    "playwright": {
+      "type": "local",
+      "command": ["npx", "-y", "@playwright/mcp"],
+      "enabled": true
+    }
+  }
+}
+```
+
+When enabled, @pm can invoke Playwright to:
+- Start dev server, open browser, capture screenshot
+- Verify no console errors
+- Confirm map tiles, markers, and routes render correctly
+
+Disabled by default. Enable per-project for UI-critical deliverables.
+
+---
+
+## Project Manager (`@pm`)
+
+Every project needs someone who owns the outcome. @pm is the single point of accountability for project delivery.
+
+| Role | Track tasks, enforce DoD, report status, maintain TRACKING.md |
+|---|---|
+| **Model** | `opencode-go/qwen3.6-plus` |
+| **Tools** | read, write, glob, grep (tracking docs only — no code) |
+| **Permission** | `edit: allow, write: allow, bash: deny` |
+| **Trigger** | `@pm init project <name>`, `@pm status`, `@pm verify <task-id>`, `@pm close project` |
+
+### TRACKING.md format
+
+@pm maintains `projects/<name>/TRACKING.md`:
+
+```markdown
+# Project: <name>
+
+## Status: 🟢 On Track / 🟡 At Risk / 🔴 Blocked
+
+## Tasks
+
+| ID | Task | Agent | Status | DoD | Notes |
+|----|------|-------|--------|-----|-------|
+| T-01 | Bootstrap project | @devops | ✅ Done | ✅ tsc+build | |
+| T-02 | Build MapView | @frontend | ✅ Done | ✅ tsc+review | |
+| T-03 | OSRM integration | @backend | 🔄 In Progress | ⏳ | |
+| T-04 | Deploy to Vercel | @devops | ⬚ Todo | - | |
+
+## Decisions
+- 2026-05-24: Chose OpenFreeMap over Google Maps (zero cost)
+- 2026-05-24: Skipped geocoding — user prefers map clicks
+
+## Issues / Blockers
+- (none)
+```
+
+### Project lifecycle
+
+```
+Human: "build a vehicle tracking app"
+  → @lead analyzes: MEDIUM, recommends @pm init
+  → @pm creates TRACKING.md with initial task breakdown
+  → @pm works with @architect to refine tasks
+  → Build agent delegates tasks. After each task:
+     → @pm verify <task-id> (enforces DoD)
+     → @pm updates TRACKING.md
+  → @pm reports status when asked
+  → @pm close project (final DoD check, captures learnings)
+```
 
 ---
 
@@ -844,7 +956,9 @@ The handbook loaded via `"instructions": ["ai-company-handbook.md"]` in `opencod
 
 ---
 
-## Appendix: Agent File Structure
+## Appendix: Agent Instruction File
+
+Agents load `agent-instructions.md` as a lean context file (~70 lines) containing the essential rules: available agents, routing tables, critical "never" rules, and task-scale gating. The full handbook is loaded alongside as a deep-reference document for complex processes (hiring, retrospectives, infrastructure).
 
 **Subagents** live in `.opencode/agents/<name>.md`:
 
@@ -889,7 +1003,7 @@ Auto-loads when a specialist encounters keywords from the description.
 ```json
 {
   "$schema": "https://opencode.ai/config.json",
-  "instructions": ["ai-company-handbook.md"]
+  "instructions": ["agent-instructions.md", "ai-company-handbook.md"]
 }
 ```
 
@@ -913,7 +1027,8 @@ This document is the company constitution. Every structural or constitutional ch
 
 | Date | Change | Type |
 |---|---|---|
-| 2026-05-24 | GitHub repos created on `ashr-aicom` org: handbook (public), knowledge (public), operations (private). Bootstrapped from handbook template. Verified: git init, initial commit, push successful. | Infrastructure |
+| 2026-05-24 | Tuned scale gating: replaced SMALL with COMPACT (1-5 files, standard patterns). Default to COMPACT. MEDIUM now requires genuine architectural uncertainty. Updated all agent templates, routing tree, and DoD tiers. | Structural |
+| 2026-05-24 | Split instruction loading: created `agent-instructions.md` (66 lines, context-efficient) for agent runtime. Full handbook loaded alongside as deep reference. `opencode.template.json` updated to load both files. | Structural |
 | 2026-05-24 | Added `docs/testing.md` — test catalog (31 tests), regression map, run history, TL;DR verification. Linked from handbook appendix. | Operational |
 | 2026-05-24 | Added Company Infrastructure section: GitHub org structure, local directory layout, knowledge as Git submodule, GitHub setup meta-task, handbook sync. Updated Architecture and Distribution sections. | Constitutional |
 | 2026-05-24 | Lead rearchitected as subagent (mode: subagent). Build remains primary. Lead provides analysis and routing recommendations; build delegates via Task tool. Knowledge agent: edit allow for skill creation. Architecture diagram simplified. | Architectural |

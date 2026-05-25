@@ -22,9 +22,10 @@ Full access: edit, write, and bash. You need bash to install dependencies, run b
 
 ## What you produce
 1. Working configuration files (vite.config.ts, tailwind.config.js, Dockerfile, etc.)
-2. Deployment-ready build output
-3. CI pipeline configuration if requested
-4. Build verification (did it compile without errors?)
+2. A project-specific README.md — **always replace the Vite scaffold README**. Include: `# <Project Name>`, one-line description, `## Quick Start` with `npm install && npm run dev`, and `## Status` linking to TRACKING.md if it exists. Never leave the default "React + TypeScript + Vite" template.
+3. Deployment-ready build output
+4. CI pipeline configuration if requested
+5. Build verification (did it compile without errors?)
 
 ## Design principles
 - Split only where task profile is distinct

@@ -46,7 +46,7 @@ Status: ✅ Passed · ❌ Failed · ⬚ Not tested · ⚠️ Fragile — re-veri
 | TC-GH-01 | Setup meta-task | ✅ | `Set up GitHub for the AI Company. The org is ashr-aicom.` — Verified: 3 repos created (handbook, knowledge, operations), pushed, correct remote URLs, directory structure matches handbook spec. Agent asked 2 questions (company root, repo creation) via structured UI. |
 | TC-CONF-01 | No config errors on restart | ✅ | Restart opencode 3+ times in the initialized directory. Verify: no errors in status bar, agent list loads cleanly. |
 | TC-CONF-02 | Model audit runs without error | ⬚ | `@lead audit models` — verify: no crashes, report contains deprecation/upgrade info |
-| TC-CONF-03 | Handbook loads as instruction | ⚠️ | Verify opencode.json has `"instructions": ["ai-company-handbook.md"]`. Agent should reference handbook content when asked about team structure. |
+| TC-CONF-03 | Handbook loads as instruction | ✅ | Asked in vehicle-tracker project: "What agents and how does routing work?" Response matched handbook: Small/Medium/Large scale gating, @lead routes, @knowledge checks skills, @po for large tasks, Lead never writes code. |
 
 ### Agent Discovery
 
@@ -122,7 +122,8 @@ Status: ✅ Passed · ❌ Failed · ⬚ Not tested · ⚠️ Fragile — re-veri
 
 | ID | What | Status | How to reproduce |
 |---|---|---|---|
-| TC-PARA-01 | Parallel delegation | ⬚ | Ask build to delegate to @frontend AND @backend simultaneously. Verify: both tasks execute in parallel (ctrl+x down to view). |
+| TC-PARA-01 | Parallel delegation | ✅ | Delegated @frontend (Card.tsx) and @backend (client.ts) simultaneously. Both created successfully. |
+| TC-AUDIT-01 | Model audit | ✅ | @lead → @knowledge fetched live catalog, compared agents. Found: no deprecations, 1 new model (hy3-preview), reference doc stale. |
 | TC-ESC-01 | Escalation to pro | ⬚ | Give @frontend a task it fails. Verify: build retries or escalates to @frontend-pro. |
 | TC-HIRE-01 | Hiring pipeline | ⬚ | `@lead hire frontend` — verify screening task creation, candidate comparison, interview scenarios. |
 | TC-RETRO-01 | Retrospective | ⬚ | `@lead run retro` — verify data compilation, reviewer analysis, report generation. |
@@ -132,8 +133,8 @@ Status: ✅ Passed · ❌ Failed · ⬚ Not tested · ⚠️ Fragile — re-veri
 | ID | What | Status | How to reproduce |
 |---|---|---|---|
 | TC-GH-01 | Setup meta-task | ⬚ | `@lead setup github` — needs gh CLI. Verify: asks org name, creates repos, pushes. |
-| TC-GH-02 | Knowledge submodule | ⬚ | After TC-GH-01. Verify: `git submodule status` shows knowledge/ linked. @knowledge creates a skill → committed to knowledge repo. |
-| TC-GH-03 | Handbook submodule sync | ⬚ | Change handbook remotely. `git submodule update --remote` in project. Verify: opencode.json instructions point to updated file. |
+| TC-GH-02 | Knowledge submodule in project | ✅ | Created osrm-routing skill in knowledge repo, committed + pushed. `git submodule update --remote knowledge/` in vehicle-tracker project pulled the skill. Submodule pointer updated and pushed. |
+| TC-GH-03 | Handbook submodule sync | ✅ | Handbook submodule (handbook/) present in project. opencode.json instructions point to `handbook/ai-company-handbook.md`. Agent responses reference handbook content (routing rules, scale gating). |
 | TC-GH-04 | Operations repo privacy | ⬚ | After TC-GH-01. Verify: operations repo is private, hiring docs not in public repos. |
 
 ---
@@ -162,9 +163,12 @@ Which changes trigger which re-tests:
 
 | Date | Trigger | Tests run | Result |
 |---|---|---|---|
-| 2026-05-24 (Round 2) | Tier 1 specialists | TC-PO-01, TC-ARCH-01, TC-DEV-01, TC-BE-01, TC-BE-OPS-01, TC-KNOW-01 | All passed |
+| 2026-05-24 (Round 7) | Scale tuning: COMPACT tier + autonomy test | TC-COMPACT-01 | ✅ — "Build a dark-mode toggle" routed as COMPACT, @frontend built useDarkMode + DarkModeToggle in 1m37s, tsc clean. Pipeline: @lead skipped (@frontend direct delegation). |
+| 2026-05-24 (Round 6) | Parallel + audit + instructions optimization | TC-PARA-01, TC-AUDIT-01, TC-CONF-03 | All ✅ |
+| 2026-05-24 (Round 4) | GitHub infrastructure | TC-BOOT-01, TC-GH-01 | TC-GH-01 ✅ — 3 repos created on ashr-aicom, agent used structured question UI, directory layout matches handbook spec. |
+| 2026-05-24 (Round 2) | Tier 1 untested specialists | TC-PO-01, TC-ARCH-01, TC-DEV-01, TC-BE-01, TC-BE-OPS-01, TC-KNOW-01 | All passed |
 | 2026-05-24 (Round 1) | Lead architecture fix | TC-BOOT-01, TC-DISC-01, TC-CONF-01, TC-LEAD-01, TC-FE-01, TC-REV-01 | All passed |
-| 2026-05-24 (Round 4) | GitHub infrastructure test | TC-BOOT-01, TC-GH-01 | Passed — 3 repos created on ashr-aicom org. Agent used structured question UI. |
+| 2026-05-24 (pre-fix) | Lead as primary agent | TC-LEAD-01 (3 attempts) | Failed — Lead defaulted to shell execution. Fixed by switching to subagent mode. |
 
 ---
 
@@ -188,5 +192,36 @@ rm -rf ~/Temp/ai-com && mkdir -p ~/Temp/ai-com && cd ~/Temp/ai-com && opencode
 
 # 4. Test Lead
 # → "Use the Task tool: @lead analyze: fix button color"
-# → Verify: "Scale: SMALL, Route: @frontend"
+# → Verify: "Scale: COMPACT, Route: @frontend"
 ```
+
+---
+
+## Lessons Learned
+
+### Round 0: Lead cannot be a primary agent
+Primary agents inherit the build template which prioritizes bash/edit/write over Task delegation. Solution: Lead is a subagent; build remains primary. Build agent handles Task delegation based on Lead's recommendations.
+
+### Round 1-2: Task tool is essential infrastructure
+Without the Task tool, specialists can't be invoked. The build agent MUST have the Task tool available. @mentions in chat don't trigger delegation — they're user-facing UI.
+
+### Round 3: @knowledge needs edit + webfetch access
+Setting `edit: deny` prevented skill file creation. Knowledge agent also needs `webfetch` for research tasks and `glob`/`grep` for scanning existing skills.
+
+### Round 4: Permission prompts block automation
+When opencode accesses external directories (sandbox, ~/ai-company/), it interrupts the flow with permission prompts. Use "Allow always" for trusted directories.
+
+### Round 5: tmux send-keys requires literal mode
+`tmux send-keys` without `-l` flag sends text as shell commands. Always use `tmux send-keys -l` for TUI chat input. See `AGENTS.md` for the full testing recipe.
+
+### Round 6: 925-line handbook wastes context
+The handbook as a single instruction file burned ~80% of agent context. Solution: split into `agent-instructions.md` (66 lines, lean) + `ai-company-handbook.md` (full reference).
+
+### Round 7: Scale "SMALL" was too coarse
+"SMALL" routing defaulted to direct delegation, but "MEDIUM" (which included most real work) triggered full architect pipeline. Adding **COMPACT** tier for 1-5 file tasks with standard patterns dramatically reduced overhead. The autonomy test showed the full pipeline works but is too slow for typical tasks.
+
+### Round 7: Autonomy works from a single sentence
+"Build a vehicle tracking demo where users set origin and destination on a map and see a vehicle drive the route" triggered @lead → @knowledge → @pm → @architect with zero supervision. The company asked clarifying questions when appropriate.
+
+### Round 7: @pm update needs reliability work
+@pm created TRACKING.md reliably, but updating task status (edit vs write) was inconsistent. Best results came from fresh-session invocations.
